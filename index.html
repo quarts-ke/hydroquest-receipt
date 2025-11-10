@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>HydroQuest Official Receipt</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+<style>
+  body {font-family: Arial, sans-serif; background: #f4f3f0; padding: 14px; margin:0;}
+  .wrap {max-width:760px; margin:0 auto;}
+  .card {
+    background:#ffffff;
+    border-radius:10px;
+    padding:16px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.1);
+    border:1px solid #d6c2a3;
+  }
+  h1 {font-size:18px;color:#5a3c1a;margin:6px 0 12px;}
+  label {display:block;margin:10px 0 6px;font-weight:600;font-size:13px;color:#4a2e12;}
+  input, select, textarea, button {width:100%; padding:10px; border-radius:8px; border:1px solid #d6c2a3; background:#fffdf7; box-sizing:border-box;}
+  textarea {resize:vertical;}
+  button {
+    background:#5a3c1a; color:#fff; border:none; font-size:15px; cursor:pointer; padding:12px; margin-top:10px; transition:background 0.3s;
+  }
+  button:hover {background:#7a5326;}
+  .muted {color:#665544; font-size:13px;}
+  #sigPad {border:1px solid #d6c2a3; border-radius:6px; background:#fefcf6; touch-action:none;}
+  .row {display:flex; gap:10px;}
+  .col {flex:1;}
+  .note {
+    background:#f0e6d8;
+    padding:10px;
+    border-left:4px solid #5a3c1a;
+    margin-top:10px;
+    border-radius:6px;
+    color:#3c2a10;
+  }
+  #downloadNotice {
+    display:none;
+    padding:10px;
+    margin-top:10px;
+    border-radius:6px;
+    background:#fffae6;
+    border:1px solid #ffd966;
+    color:#665544;
+    font-size:13px;
+  }
+  .spinner {
+    display:inline-block;
+    width:16px;
+    height:16px;
+    border:3px solid #d6c2a3;
+    border-top-color:#5a3c1a;
+    border-radius:50%;
+    animation: spin 0.8s linear infinite;
+    margin-right:6px;
+    vertical-align:middle;
+  }
+  @keyframes spin {to { transform: rotate(360deg); }}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>HydroQuest Payment Portal (Official Receipt)</h1>
+    <p style="font-size:13px;color:#5a3c1a;margin-bottom:2px;"><strong>Company Email:</strong> info@hydroquest.co.ke</p>
+    <p style="font-size:13px;color:#5a3c1a;"><strong>Company Contact:</strong> +20 567589661</p>
+    <hr style="border-color:#cbb79a;" />
+
+<form id="paymentForm">
+  <label>Full name</label>
+  <input id="name" placeholder="Client full name" />
+
+  <label>Email address</label>
+  <input id="email" placeholder="Client email" />
+
+  <label>ID number</label>
+  <input id="idNumber" placeholder="National ID or Passport" />
+
+  <label>Contact number</label>
+  <input id="contact" placeholder="Client phone" />
+
+  <label>County</label>
+  <input id="county" placeholder="County" />
+
+  <label>Subcounty</label>
+  <input id="subcounty" placeholder="Subcounty" />
+
+  <label>Location</label>
+  <input id="location" placeholder="Location" />
+
+  <label>Sublocation</label>
+  <input id="sublocation" placeholder="Sublocation" />
+
+  <label>GPRS PIN</label>
+  <input id="gprs" placeholder="GPRS PIN or client id" />
+
+  <div class="row">
+    <div class="col">
+      <label>Preferred service date</label>
+      <input id="serviceDate" type="date" />
+    </div>
+    <div class="col">
+      <label>Service type</label>
+      <select id="serviceType">
+        <option>Hydrological Survey</option>
+        <option>Borehole Drilling</option>
+        <option>Pump and Tower Installation</option>
+        <option>Borehole and Pump Maintenance</option>
+        <option>Other</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="otherDiv" style="display:none">
+    <label>If other, describe</label>
+    <textarea id="otherService" rows="2"></textarea>
+  </div>
+
+  <label>Payment amount (KES)</label>
+  <input id="paymentAmount" type="number" placeholder="e.g. 50000" />
+
+  <div class="note">
+    Pay via M-Pesa or Airtel Money to <strong>0734721404</strong> then enter your transaction code below for confirmation.
+  </div>
+
+  <label>Transaction code</label>
+  <input id="transactionCode" placeholder="Enter transaction code" />
+
+  <label style="margin-top:12px">Signature (draw with finger) — required</label>
+  <canvas id="sigPad" width="700" height="160"></canvas>
+
+  <div style="display:flex; gap:8px; margin-top:8px">
+    <button id="clearSig" type="button" style="background:#8a6b47; flex:0 0 120px">Clear signature</button>
+    <div class="muted" style="align-self:center">Signature will appear on the official receipt</div>
+  </div>
+
+  <button type="button" id="generate">Confirm Payment and Download Official Receipt</button>
+  <div id="downloadNotice"><span class="spinner"></span>Receipt is generating. Click Open when prompted to view your official receipt.</div>
+  <div style="margin-top:8px" class="muted">Receipt includes security serial, reference code and QR for verification.</div>
+</form>
+  </div>
+</div>
+
+<script>
+const st = document.getElementById('serviceType');
+st.addEventListener('change', ()=> {
+  document.getElementById('otherDiv').style.display = st.value==='Other'?'block':'none';
+});
+
+const canvas = document.getElementById('sigPad');
+const ctx = canvas.getContext('2d');
+let drawing=false,lastX=0,lastY=0;
+
+function fitCanvas(){
+  const ratio=window.devicePixelRatio||1,w=700,h=160;
+  canvas.style.width=w+'px';
+  canvas.style.height=h+'px';
+  canvas.width=w*ratio;
+  canvas.height=h*ratio;
+  ctx.scale(ratio,ratio);
+  ctx.lineJoin='round';
+  ctx.lineCap='round';
+  ctx.strokeStyle='#5a3c1a';
+  ctx.lineWidth=2;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+fitCanvas();
+
+function getPos(e){
+  const r=canvas.getBoundingClientRect();
+  const t=e.touches?e.touches[0]:null;
+  return {x:(t?t.clientX:e.clientX)-r.left, y:(t?t.clientY:e.clientY)-r.top};
+}
+
+canvas.addEventListener('mousedown',e=>{drawing=true; const p=getPos(e); lastX=p.x; lastY=p.y;});
+canvas.addEventListener('mousemove',e=>{if(!drawing)return; const p=getPos(e); ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(p.x,p.y); ctx.stroke(); lastX=p.x; lastY=p.y;});
+canvas.addEventListener('mouseup',()=>drawing=false);
+canvas.addEventListener('mouseout',()=>drawing=false);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();drawing=true; const p=getPos(e); lastX=p.x; lastY=p.y;});
+canvas.addEventListener('touchmove',e=>{e.preventDefault(); if(!drawing)return; const p=getPos(e); ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(p.x,p.y); ctx.stroke(); lastX=p.x; lastY=p.y;});
+canvas.addEventListener('touchend',()=>drawing=false);
+
+document.getElementById('clearSig').addEventListener('click',()=>{fitCanvas();});
+
+let firstCode='';
+document.getElementById('generate').addEventListener('click',()=>{
+  const txInput=document.getElementById('transactionCode'); const txCode=txInput.value.trim();
+  if(!firstCode){
+    if(!txCode){alert('Please enter your transaction code.'); return;}
+    firstCode=txCode;
+    txInput.value='';
+    txInput.placeholder='Re-enter the same transaction code for confirmation';
+    alert('Please re-enter your transaction code to confirm.');
+    return;
+  }
+  if(txCode!==firstCode){
+    alert('Transaction code mismatch! Please try again.');
+    firstCode='';
+    txInput.value='';
+    txInput.placeholder='Enter transaction code';
+    return;
+  }
+
+  const notice=document.getElementById('downloadNotice'); notice.style.display='block';
+  firstCode='';
+  setTimeout(()=>{
+    generateReceipt();
+    notice.style.display='none';
+    resetForm();
+  },1500); // spinner stays 1.5s
+});
+
+function generateReceipt(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const serial="HQ-"+Math.floor(Math.random()*900000+100000);
+  const ref="REF-"+Date.now().toString().slice(-6);
+  const name=document.getElementById('name').value;
+  const email=document.getElementById('email').value;
+  const idNumber=document.getElementById('idNumber').value;
+  const contact=document.getElementById('contact').value;
+  const county=document.getElementById('county').value;
+  const subcounty=document.getElementById('subcounty').value;
+  const location=document.getElementById('location').value;
+  const sublocation=document.getElementById('sublocation').value;
+  const service=document.getElementById('serviceType').value;
+  const amount=document.getElementById('paymentAmount').value;
+  const tx=document.getElementById('transactionCode').value;
+  const date=new Date().toLocaleDateString();
+  const sigData=canvas.toDataURL();
+  const qr=new QRious({value:`HydroQuest Receipt\nRef:${ref}\nSerial:${serial}\nClient:${name}\nTx:${tx}`,size:100});
+
+  doc.setDrawColor(150,120,80); doc.setLineWidth(1); doc.rect(5,5,200,287);
+  doc.setFillColor(248,245,240); doc.rect(0,0,210,297,'F');
+  doc.setTextColor(220,220,220); doc.setFontSize(60); doc.text("HYDROQUEST",30,150,{angle:45,align:'center'});
+  doc.setFontSize(20); doc.setTextColor(200,160,60); doc.text("VERIFIED",150,270,{angle:30});
+  doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.setTextColor(90,60,26);
+  doc.text("HYDROQUEST HYDROLOGICAL SURVEY DEPARTMENT",15,20);
+  doc.setFontSize(13); doc.text("OFFICIAL PAYMENT RECEIPT",15,28);
+  doc.setFont("helvetica","normal"); doc.setTextColor(0,0,0);
+  doc.text(`Serial Number: ${serial}`,15,40);
+  doc.text(`Reference Code: ${ref}`,15,47);
+  doc.text(`Date Issued: ${date}`,15,54);
+  doc.setDrawColor(150,120,80); doc.line(15,58,195,58);
+  doc.setFillColor(250,245,230); doc.rect(15,60,180,80,'F');
+  doc.setFont("helvetica","bold"); doc.text(`Client Name: ${name}`,17,68);
+  doc.setFont("helvetica","normal");
+  doc.text(`Email: ${email}`,17,75);
+  doc.text(`ID Number: ${idNumber}`,17,82);
+  doc.text(`Contact: ${contact}`,17,89);
+  doc.text(`County: ${county}`,17,96);
+  doc.text(`Subcounty: ${subcounty}`,17,103);
+  doc.text(`Location: ${location}`,17,110);
+  doc.text(`Sublocation: ${sublocation}`,17,117);
+  doc.setFillColor(245,240,230); doc.rect(15,140,180,35,'F');
+  doc.setFont("helvetica","bold");
+  doc.text(`Service Type: ${service}`,17,148);
+  doc.text(`Amount Paid: KES ${amount}`,17,155);
+  doc.setFont("helvetica","normal"); doc.text(`Transaction Code: ${tx}`,17,162);
+  doc.addImage(sigData,'PNG',15,180,50,25);
+  doc.text("Client Signature",15,207);
+  doc.text("Authorized Signature: ____________________",140,207);
+  doc.addImage(qr.toDataURL(),"PNG",155,140,40,40);
+  doc.setFontSize(11);
+  doc.text("System generated receipt validated by QR code and serial number.",15,225);
+  doc.text("For verification, visit: www.hydroquest.co.ke/verify",15,232);
+  doc.save(`HydroQuest_Official_Receipt_${serial}.pdf`);
+}
+
+function resetForm(){
+  const form=document.getElementById('paymentForm');
+  form.reset(); // reset input/select/textarea values
+  document.getElementById('transactionCode').placeholder='Enter transaction code';
+  document.getElementById('otherDiv').style.display='none';
+  fitCanvas(); // clear signature
+  st.value='Hydrological Survey'; // reset service type dropdown
+}
+</script>
+</body>
+  </html>
