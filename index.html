@@ -25,7 +25,14 @@
   }
   button:hover {background:#7a5326;}
   .muted {color:#665544; font-size:13px;}
-  #sigPad {border:1px solid #d6c2a3; border-radius:6px; background:#fefcf6; touch-action:none;}
+  #sigPad {
+    border:1px solid #d6c2a3; 
+    border-radius:6px; 
+    background:#fefcf6; 
+    touch-action:none;
+    width:100%; 
+    height:120px; /* proportional to other inputs */
+  }
   .row {display:flex; gap:10px;}
   .col {flex:1;}
   .note {
@@ -130,7 +137,7 @@
   <input id="transactionCode" placeholder="Enter transaction code" required />
 
   <label style="margin-top:12px">Signature (draw with finger) — required</label>
-  <canvas id="sigPad" width="700" height="160"></canvas>
+  <canvas id="sigPad"></canvas>
 
   <div style="display:flex; gap:8px; margin-top:8px">
     <button id="clearSig" type="button" style="background:#8a6b47; flex:0 0 120px">Clear signature</button>
@@ -148,13 +155,26 @@
 const st=document.getElementById('serviceType');
 st.addEventListener('change',()=>{document.getElementById('otherDiv').style.display=st.value==='Other'?'block':'none';});
 
-const canvas=document.getElementById('sigPad'); const ctx=canvas.getContext('2d'); let drawing=false,lastX=0,lastY=0;
+const canvas=document.getElementById('sigPad'); 
+const ctx=canvas.getContext('2d'); 
+let drawing=false,lastX=0,lastY=0;
+
 function fitCanvas(){
-  const ratio=window.devicePixelRatio||1,w=700,h=160;
-  canvas.style.width=w+'px'; canvas.style.height=h+'px'; canvas.width=w*ratio; canvas.height=h*ratio;
-  ctx.scale(ratio,ratio); ctx.lineJoin='round'; ctx.lineCap='round'; ctx.strokeStyle='#5a3c1a'; ctx.lineWidth=2; ctx.clearRect(0,0,canvas.width,canvas.height);
+  const ratio=window.devicePixelRatio||1;
+  const w=canvas.offsetWidth;
+  const h=canvas.offsetHeight;
+  canvas.width = w * ratio;
+  canvas.height = h * ratio;
+  ctx.scale(ratio, ratio);
+  ctx.lineJoin='round';
+  ctx.lineCap='round';
+  ctx.strokeStyle='#5a3c1a';
+  ctx.lineWidth=2;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 fitCanvas();
+window.addEventListener('resize', fitCanvas);
+
 function getPos(e){const r=canvas.getBoundingClientRect();const t=e.touches?e.touches[0]:null;return{x:(t?t.clientX:e.clientX)-r.left,y:(t?t.clientY:e.clientY)-r.top};}
 canvas.addEventListener('mousedown',e=>{drawing=true;const p=getPos(e);lastX=p.x;lastY=p.y;});
 canvas.addEventListener('mousemove',e=>{if(!drawing)return;const p=getPos(e);ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(p.x,p.y);ctx.stroke();lastX=p.x;lastY=p.y;});
@@ -245,4 +265,4 @@ function resetForm(){
 }
 </script>
 </body>
-    </html>
+                                               </html>
